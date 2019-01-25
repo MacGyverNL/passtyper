@@ -2,13 +2,12 @@
 
 shopt -s nullglob globstar
 
-XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-CONFIG="${XDG_CONFIG_HOME}/passtyper/config"
+config="${XDG_CONFIG_HOME:-$HOME/.config}/passtyper/config"
 
 # Config file containing env variables FALLBACKUSER and/or FALLBACKUSERSUFFIX.
-[[ -f "${CONFIG}" ]] && . "${CONFIG}"
+[[ -f "${config}" ]] && . "${config}"
 
-CLIP_TIME="${PASSWORD_STORE_CLIP_TIME:-45}"
+clip_time="${PASSWORD_STORE_CLIP_TIME:-45}"
 
 # Provided by zx2c4 under the MIT license, from the pass core code. Need to do
 # this because we need to send more than just the password to the clipboard.
@@ -21,7 +20,7 @@ clip() {
 	local before="$(xclip -o -selection "$X_SELECTION" 2>/dev/null | $BASE64)"
 	echo -n "$1" | xclip -selection "$X_SELECTION" || die "Error: Could not copy data to the clipboard"
 	(
-		( exec -a "$sleep_argv0" bash <<<"trap 'kill %1' TERM; sleep '$CLIP_TIME' & wait" )
+		( exec -a "$sleep_argv0" bash <<<"trap 'kill %1' TERM; sleep '$clip_time' & wait" )
 		local now="$(xclip -o -selection "$X_SELECTION" | $BASE64)"
 		[[ $now != $(echo -n "$1" | $BASE64) ]] && before="$now"
 
@@ -36,15 +35,15 @@ clip() {
 
 		echo "$before" | $BASE64 -d | xclip -selection "$X_SELECTION"
 	) >/dev/null 2>&1 & disown
-	echo "Copied $2 to clipboard. Will clear in $CLIP_TIME seconds."
+	echo "Copied $2 to clipboard. Will clear in $clip_time seconds."
 }
 # End shameless copying here.
 
-GIVEPASSWORD=1
-GIVEUSERNAME=0
-SEPARATOR=$'\t'
+givepassword=1
+giveusername=0
+separator=$'\t'
 
-OPTS=$(getopt --name 'passtyper' --options 'p::s:u::' --longoptions 'password::,separator:,username::' -- "$@")
+opts=$(getopt --name 'passtyper' --options 'p::s:u::' --longoptions 'password::,separator:,username::' -- "$@")
 
 if [ $? -ne 0 ]
 then
@@ -52,9 +51,8 @@ then
 	exit 1
 fi
 
-# Do not remove the quotes around "$OPTS".
-eval set -- "$OPTS"
-unset OPTS
+eval set -- "${opts}"
+unset opts
 
 while true
 do
@@ -62,13 +60,13 @@ do
 		'-p'|'--password')
 			case "$2" in
 				''|'t'|'type')
-					GIVEPASSWORD=1
+					givepassword=1
 				;;
 				'c'|'clipboard')
-					GIVEPASSWORD=2
+					givepassword=2
 				;;
 				'n'|'none')
-					GIVEPASSWORD=0
+					givepassword=0
 				;;
 				*)
 					echo "Invalid option for password: '$2'. Valid options are: (t)ype,(c)lipboard,(n)one. Defaults to type." >&2
@@ -79,20 +77,20 @@ do
 			continue
 		;;
 		'-s'|'--separator')
-			printf -v SEPARATOR "$2"
+			printf -v separator "$2"
 			shift 2
 			continue
 		;;
 		'-u'|'--username')
 			case "$2" in
 				''|'t'|'type')
-					GIVEUSERNAME=1
+					giveusername=1
 				;;
 				'c'|'clipboard')
-					GIVEUSERNAME=2
+					giveusername=2
 				;;
 				'n'|'none')
-					GIVEUSERNAME=0
+					giveusername=0
 				;;
 				*)
 					echo "Invalid option for username: '$2'. Valid options are: (t)ype,(c)lipboard,(n)one. Defaults to type if present, none otherwise." >&2
@@ -114,117 +112,120 @@ do
 done
 
 prefix=${PASSWORD_STORE_DIR-~/.password-store}
-password_files=( "$prefix"/**/*.gpg )
-password_files=( "${password_files[@]#"$prefix"/}" )
+password_files=( "${prefix}"/**/*.gpg )
+password_files=( "${password_files[@]#"${prefix}"/}" )
 password_files=( "${password_files[@]%.gpg}" )
 
-DMENU_PROMPT="passtyper:"
-if [[ $GIVEUSERNAME -eq 1 ]]
+dmenu_prompt="passtyper:"
+if [[ "${giveusername}" -eq 1 ]]
 then
-	DMENU_PROMPT="${DMENU_PROMPT} user typed"
-elif [[ $GIVEUSERNAME -eq 2 ]]
+	dmenu_prompt="${dmenu_prompt} user typed"
+elif [[ "${giveusername}" -eq 2 ]]
 then
-	DMENU_PROMPT="${DMENU_PROMPT} user copied"
+	dmenu_prompt="${dmenu_prompt} user copied"
 fi
 
-if [[ $GIVEUSERNAME -ne 0 ]] && [[ $GIVEPASSWORD -ne 0 ]]
+if [[ "${giveusername}" -ne 0 ]] && [[ "${givepassword}" -ne 0 ]]
 then
-	DMENU_PROMPT="${DMENU_PROMPT},"
+	dmenu_prompt="${dmenu_prompt},"
 fi
 
-if [[ $GIVEPASSWORD -eq 1 ]]
+if [[ "${givepassword}" -eq 1 ]]
 then
-	DMENU_PROMPT="${DMENU_PROMPT} password typed"
-elif [[ $GIVEPASSWORD -eq 2 ]]
+	dmenu_prompt="${dmenu_prompt} password typed"
+elif [[ "${givepassword}" -eq 2 ]]
 then
-	DMENU_PROMPT="${DMENU_PROMPT} password copied"
+	dmenu_prompt="${dmenu_prompt} password copied"
 fi
 
-DMENU_PROMPT="${DMENU_PROMPT}>"
+dmenu_prompt="${dmenu_prompt}>"
 
 echo "$@"
-password_file=$(printf '%s\n' "${password_files[@]}" | dmenu -i -p "${DMENU_PROMPT}" "$@")
+password_file=$(printf '%s\n' "${password_files[@]}" | dmenu -i -p "${dmenu_prompt}" "$@")
 
-[[ -n $password_file ]] || exit
+[[ -n "${password_file}" ]] || exit
 
-# IFF PASSWORD=2 (clipboard) & USERNAME=0 (no username), revert to pass show -c.
-if [[ $GIVEPASSWORD -eq 2 ]] && [[ $GIVEUSERNAME -eq 0 ]]
+# IFF password=2 (clipboard) & username=0 (no username), revert to pass show -c.
+if [[ "${givepassword}" -eq 2 ]] && [[ "${giveusername}" -eq 0 ]]
 then
-	pass show -c "$password_file" 2> /dev/null
+	pass show -c "${password_file}" 2> /dev/null
 	exit 0
 fi
 
-TYPESTRING=""
-CLIPSTRING=""
-PASSDATA="$(pass show ${password_file} 2> /dev/null)"
-PASSWORD="${PASSDATA%%$'\n'*}"
-PASSDATA="${PASSDATA#${PASSWORD}}"
-PASSDATA="${PASSDATA#$'\n'}"
+typestring=""
+clipstring=""
+passdata="$(pass show ${password_file} 2> /dev/null)"
+password="${passdata%%$'\n'*}"
+passdata="${passdata#${password}}"
+passdata="${passdata#$'\n'}"
 
-[[ -n "${PASSWORD}" ]] || exit
+[[ -n "${password}" ]] || exit
 
 # Retrieve username. We don't bother calling out to pass show -c because
 # username-fields are often prefixed with "username:"
-if [[ $GIVEUSERNAME -ne 0 ]]
+if [[ "${giveusername}" -ne 0 ]]
 then
-	if [[ -n "${PASSDATA}" ]]
+	if [[ -n "${passdata}" ]]
 	then
-		USERNAME=$(<<<"${PASSDATA}" sed -ne '/^username: /I s/^username: //I p')
-		if [[ -z "$USERNAME" ]]
+		username="$(<<<"${passdata}" sed -ne '/^username: /I s/^username: //I p')"
+		if [[ -z "${username}" ]]
 		then
 			# Fallback to line 2 of the file. if it does not contain spaces and :.
-			USERNAME="${PASSDATA#*$'\n'}"
-			if [[ $USERNAME == *":"* ]] || [[ $USERNAME == *" "* ]]
+			username="${passdata#*$'\n'}"
+			if [[ "${username}" == *":"* ]] || [[ "${username}" == *" "* ]]
 			then
-				USERNAME=""
+				username=""
 			fi
 		fi
 	fi
 
-	if [[ -z "${USERNAME}" ]]
+	if [[ -z "${username}" ]]
 	then
 		if [[ -z "${FALLBACKUSER}" ]]
 		then
-			USERNAME="${password_file##*/}${FALLBACKUSERSUFFIX}"
+			username="${password_file##*/}${FALLBACKUSERSUFFIX}"
 		else
-			USERNAME="${FALLBACKUSER}"
+			username="${FALLBACKUSER}"
 		fi
 	fi
 
-	if [[ $GIVEUSERNAME -eq 1 ]]
+	if [[ "${giveusername}" -eq 1 ]]
 	then
-		TYPESTRING="${USERNAME}"
-	elif [[ $GIVEUSERNAME -eq 2 ]]
+		typestring="${username}"
+	elif [[ "${giveusername}" -eq 2 ]]
 	then
-		CLIPSTRING="${USERNAME}"
+		clipstring="${username}"
 	fi
 fi
 
-if [[ $GIVEPASSWORD -eq 1 ]]
+if [[ "${givepassword}" -eq 1 ]]
 then
-	if [[ -n "${TYPESTRING}" ]]
+	if [[ -n "${typestring}" ]]
 	then
-		TYPESTRING="${TYPESTRING}${SEPARATOR}${PASSWORD}"
+		typestring="${typestring}${separator}${password}"
 	else
-		TYPESTRING="${PASSWORD}"
+		typestring="${password}"
 	fi
-elif [[ $GIVEPASSWORD -eq 2 ]]
+elif [[ "${givepassword}" -eq 2 ]]
 then
-	if [[ -n "${CLIPSTRING}" ]]
+	if [[ -n "${clipstring}" ]]
 	then
-		CLIPSTRING="${CLIPSTRING}${SEPARATOR}${PASSWORD}"
+		clipstring="${clipstring}${separator}${password}"
 	else
-		CLIPSTRING="${PASSWORD}"
+		clipstring="${password}"
 	fi
 fi
 
-if [[ -n "${TYPESTRING}" ]]
+if [[ -n "${typestring}" ]]
 then
-	printf "%s" "${TYPESTRING}" | xdotool type --clearmodifiers --file -
+	printf "%s" "${typestring}" | xdotool type --clearmodifiers --file -
 fi
 
-if [[ $GIVEPASSWORD == 2 ]] || [[ $GIVEUSERNAME == 2 ]]
+# Clip even if empty clipstring if clip was requested, because the user doesn't expect
+# the clipboard to be filled with old data just because we couldn't figure out what to
+# put in there. Empty is better than wrong.
+if [[ "${givepassword}" -eq 2 ]] || [[ "${giveusername}" -eq 2 ]]
 then
-	clip "${CLIPSTRING}" "${password_file}"
+	clip "${clipstring}" "${password_file}"
 fi
 
