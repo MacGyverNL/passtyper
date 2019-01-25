@@ -158,7 +158,8 @@ TYPESTRING=""
 CLIPSTRING=""
 PASSDATA="$(pass show ${password_file} 2> /dev/null)"
 PASSWORD="${PASSDATA%%$'\n'*}"
-PASSDATA="${PASSDATA#${PASSWORD}$'\n'}"
+PASSDATA="${PASSDATA#${PASSWORD}}"
+PASSDATA="${PASSDATA#$'\n'}"
 
 [[ -n "${PASSWORD}" ]] || exit
 
