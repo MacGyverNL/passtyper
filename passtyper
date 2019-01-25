@@ -154,7 +154,7 @@ fi
 
 typestring=""
 clipstring=""
-passdata="$(pass show ${password_file} 2> /dev/null)"
+passdata=$(pass show "${password_file}" 2> /dev/null)
 password="${passdata%%$'\n'*}"
 passdata="${passdata#${password}}"
 passdata="${passdata#$'\n'}"
@@ -167,7 +167,7 @@ if [[ "${giveusername}" -ne 0 ]]
 then
 	if [[ -n "${passdata}" ]]
 	then
-		username="$(<<<"${passdata}" sed -ne '/^username: /I s/^username: //I p')"
+		username=$( builtin echo "${passdata}" | sed -ne '/^username: /I s/^username: //I p' )
 		if [[ -z "${username}" ]]
 		then
 			# Fallback to line 2 of the file. if it does not contain spaces and :.
