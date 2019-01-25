@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+
+shopt -s nullglob globstar
+
+XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+CONFIG="${XDG_CONFIG_HOME}/passtyper/config"
+
+# Config file containing env variables FALLBACKUSER and/or FALLBACKUSERSUFFIX.
+[[ -f "${CONFIG}" ]] && . "${CONFIG}"
+
+CLIP_TIME="${PASSWORD_STORE_CLIP_TIME:-45}"
+
+# Provided by zx2c4 under the MIT license, from the pass core code. Need to do
+# this because we need to send more than just the password to the clipboard.
+clip() {
+	# This base64 business is because bash cannot store binary data in a shell
+	# variable. Specifically, it cannot store nulls nor (non-trivally) store
+	# trailing new lines.
+	local sleep_argv0="password store sleep on display $DISPLAY"
+	pkill -f "^$sleep_argv0" 2>/dev/null && sleep 0.5
+	local before="$(xclip -o -selection "$X_SELECTION" 2>/dev/null | $BASE64)"
+	echo -n "$1" | xclip -selection "$X_SELECTION" || die "Error: Could not copy data to the clipboard"
+	(
+		( exec -a "$sleep_argv0" bash <<<"trap 'kill %1' TERM; sleep '$CLIP_TIME' & wait" )
+		local now="$(xclip -o -selection "$X_SELECTION" | $BASE64)"
+		[[ $now != $(echo -n "$1" | $BASE64) ]] && before="$now"
+
+		# It might be nice to programatically check to see if klipper exists,
+		# as well as checking for other common clipboard managers. But for now,
+		# this works fine -- if qdbus isn't there or if klipper isn't running,
+		# this essentially becomes a no-op.
+		#
+		# Clipboard managers frequently write their history out in plaintext,
+		# so we axe it here:
+		qdbus org.kde.klipper /klipper org.kde.klipper.klipper.clearClipboardHistory &>/dev/null
+
+		echo "$before" | $BASE64 -d | xclip -selection "$X_SELECTION"
+	) >/dev/null 2>&1 & disown
+	echo "Copied $2 to clipboard. Will clear in $CLIP_TIME seconds."
+}
+# End shameless copying here.
+
+GIVEPASSWORD=1
+GIVEUSERNAME=0
+SEPARATOR=$'\t'
+
+OPTS=$(getopt --name 'passtyper' --options 'p::s:u::' --longoptions 'password::,separator:,username::' -- "$@")
+
+if [ $? -ne 0 ]
+then
+	echo 'Terminating...' >&2
+	exit 1
+fi
+
+# Do not remove the quotes around "$OPTS".
+eval set -- "$OPTS"
+unset OPTS
+
+while true
+do
+	case "$1" in
+		'-p'|'--password')
+			case "$2" in
+				''|'t'|'type')
+					GIVEPASSWORD=1
+				;;
+				'c'|'clipboard')
+					GIVEPASSWORD=2
+				;;
+				'n'|'none')
+					GIVEPASSWORD=0
+				;;
+				*)
+					echo "Invalid option for password: '$2'. Valid options are: (t)ype,(c)lipboard,(n)one. Defaults to type." >&2
+					exit 1
+				;;
+			esac
+			shift 2
+			continue
+		;;
+		'-s'|'--separator')
+			printf -v SEPARATOR "$2"
+			shift 2
+			continue
+		;;
+		'-u'|'--username')
+			case "$2" in
+				''|'t'|'type')
+					GIVEUSERNAME=1
+				;;
+				'c'|'clipboard')
+					GIVEUSERNAME=2
+				;;
+				'n'|'none')
+					GIVEUSERNAME=0
+				;;
+				*)
+					echo "Invalid option for username: '$2'. Valid options are: (t)ype,(c)lipboard.. Defaults to type if present, none otherwise." >&2
+					exit 1
+				;;
+			esac
+			shift 2
+			continue
+		;;
+		'--')
+			shift
+			break
+		;;
+		*)
+			echo 'Internal error!' >&2
+			exit 1
+		;;
+	esac
+done
+
+prefix=${PASSWORD_STORE_DIR-~/.password-store}
+password_files=( "$prefix"/**/*.gpg )
+password_files=( "${password_files[@]#"$prefix"/}" )
+password_files=( "${password_files[@]%.gpg}" )
+
+DMENU_PROMPT="passtyper:"
+if [[ $GIVEUSERNAME -eq 1 ]]
+then
+	DMENU_PROMPT="${DMENU_PROMPT} user typed"
+elif [[ $GIVEUSERNAME -eq 2 ]]
+then
+	DMENU_PROMPT="${DMENU_PROMPT} user copied"
+fi
+
+if [[ $GIVEUSERNAME -ne 0 ]] && [[ $GIVEPASSWORD -ne 0 ]]
+then
+	DMENU_PROMPT="${DMENU_PROMPT},"
+fi
+
+if [[ $GIVEPASSWORD -eq 1 ]]
+then
+	DMENU_PROMPT="${DMENU_PROMPT} password typed"
+elif [[ $GIVEPASSWORD -eq 2 ]]
+then
+	DMENU_PROMPT="${DMENU_PROMPT} password copied"
+fi
+
+DMENU_PROMPT="${DMENU_PROMPT}>"
+
+echo "$@"
+password_file=$(printf '%s\n' "${password_files[@]}" | dmenu -i -p "${DMENU_PROMPT}" "$@")
+
+[[ -n $password_file ]] || exit
+
+# IFF PASSWORD=2 (clipboard) & USERNAME=0 (no username), revert to pass show -c.
+if [[ $GIVEPASSWORD -eq 2 ]] && [[ $GIVEUSERNAME -eq 0 ]]
+then
+	pass show -c "$password_file" 2> /dev/null
+	exit 0
+fi
+
+TYPESTRING=""
+CLIPSTRING=""
+PASSDATA="$(pass show ${password_file} 2> /dev/null)"
+PASSWORD="${PASSDATA%%$'\n'*}"
+PASSDATA="${PASSDATA#${PASSWORD}$'\n'}"
+
+[[ -n "${PASSWORD}" ]] || exit
+
+# Retrieve username. We don't bother calling out to pass show -c because
+# username-fields are often prefixed with "username:"
+if [[ $GIVEUSERNAME -ne 0 ]]
+then
+	if [[ -n "${PASSDATA}" ]]
+	then
+		USERNAME=$(<<<"${PASSDATA}" sed -ne '/^username: /I s/^username: //I p')
+		if [[ -z "$USERNAME" ]]
+		then
+			# Fallback to line 2 of the file. if it does not contain spaces and :.
+			USERNAME="${PASSDATA#*$'\n'}"
+			if [[ $USERNAME == *":"* ]] || [[ $USERNAME == *" "* ]]
+			then
+				USERNAME=""
+			fi
+		fi
+	fi
+
+	if [[ -z "${USERNAME}" ]]
+	then
+		if [[ -z "${FALLBACKUSER}" ]]
+		then
+			USERNAME="${password_file##*/}${FALLBACKUSERSUFFIX}"
+		else
+			USERNAME="${FALLBACKUSER}"
+		fi
+	fi
+
+	if [[ $GIVEUSERNAME -eq 1 ]]
+	then
+		TYPESTRING="${USERNAME}"
+	elif [[ $GIVEUSERNAME -eq 2 ]]
+	then
+		CLIPSTRING="${USERNAME}"
+	fi
+fi
+
+if [[ $GIVEPASSWORD -eq 1 ]]
+then
+	if [[ -n "${TYPESTRING}" ]]
+	then
+		TYPESTRING="${TYPESTRING}${SEPARATOR}${PASSWORD}"
+	else
+		TYPESTRING="${PASSWORD}"
+	fi
+elif [[ $GIVEPASSWORD -eq 2 ]]
+then
+	if [[ -n "${CLIPSTRING}" ]]
+	then
+		CLIPSTRING="${CLIPSTRING}${SEPARATOR}${PASSWORD}"
+	else
+		CLIPSTRING="${PASSWORD}"
+	fi
+fi
+
+if [[ -n "${TYPESTRING}" ]]
+then
+	printf "%s" "${TYPESTRING}" | xdotool type --clearmodifiers --file -
+fi
+
+if [[ $GIVEPASSWORD == 2 ]] || [[ $GIVEUSERNAME == 2 ]]
+then
+	clip "${CLIPSTRING}" "${password_file}"
+fi
+
