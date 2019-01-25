@@ -41,9 +41,9 @@ clip() {
 
 givepassword=1
 giveusername=0
-separator=$'\t'
+separator="$'\t'"
 
-opts=$(getopt --name 'passtyper' --options 'p::s:u::' --longoptions 'password::,separator:,username::' -- "$@")
+opts="$(getopt --name 'passtyper' --options 'p::s:u::' --longoptions 'password::,separator:,username::' -- "$@")"
 
 if [ $? -ne 0 ]
 then
@@ -111,7 +111,7 @@ do
 	esac
 done
 
-prefix=${PASSWORD_STORE_DIR-~/.password-store}
+prefix="${PASSWORD_STORE_DIR-~/.password-store}"
 password_files=( "${prefix}"/**/*.gpg )
 password_files=( "${password_files[@]#"${prefix}"/}" )
 password_files=( "${password_files[@]%.gpg}" )
@@ -141,7 +141,7 @@ fi
 dmenu_prompt="${dmenu_prompt}>"
 
 echo "$@"
-password_file=$(printf '%s\n' "${password_files[@]}" | dmenu -i -p "${dmenu_prompt}" "$@")
+password_file="$(printf '%s\n' "${password_files[@]}" | dmenu -i -p "${dmenu_prompt}" "$@")"
 
 [[ -n "${password_file}" ]] || exit
 
@@ -154,7 +154,7 @@ fi
 
 typestring=""
 clipstring=""
-passdata=$(pass show "${password_file}" 2> /dev/null)
+passdata="$(pass show "${password_file}" 2> /dev/null)"
 password="${passdata%%$'\n'*}"
 passdata="${passdata#${password}}"
 passdata="${passdata#$'\n'}"
@@ -167,7 +167,7 @@ if [[ "${giveusername}" -ne 0 ]]
 then
 	if [[ -n "${passdata}" ]]
 	then
-		username=$( builtin echo "${passdata}" | sed -ne '/^username: /I s/^username: //I p' )
+		username="$( builtin echo "${passdata}" | sed -ne '/^username: /I s/^username: //I p' )"
 		if [[ -z "${username}" ]]
 		then
 			# Fallback to line 2 of the file. if it does not contain spaces and :.
