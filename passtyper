@@ -95,7 +95,7 @@ do
 					GIVEUSERNAME=0
 				;;
 				*)
-					echo "Invalid option for username: '$2'. Valid options are: (t)ype,(c)lipboard.. Defaults to type if present, none otherwise." >&2
+					echo "Invalid option for username: '$2'. Valid options are: (t)ype,(c)lipboard,(n)one. Defaults to type if present, none otherwise." >&2
 					exit 1
 				;;
 			esac

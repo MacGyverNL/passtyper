@@ -49,30 +49,9 @@ The file `${XDG_CONFIG_HOME}/passtyper/config` (default `$HOME/.config/passtyper
 [xclip](https://github.com/astrand/xclip) for clipboard-support.
 
 ## AUTHOR & COPYRIGHT & LEGAL
-The `clip()` function was written by Jason A. Donenfeld of zx2c4.com and [is licensed under the MIT license](https://xn--4db.cc/MzwCY38c/bash), text of which is included below. Apologies for the part where the license shouts at you.
+Most of passtyper was (badly) written in a few hours by Pol Van Aubel and licensed under [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-The rest of passtyper was (badly) written in a few hours by Pol Van Aubel and licensed under [CC0](https://creativecommons.org/publicdomain/zero/1.0/). I don't care what you do with my code, just don't rip off Jason's.
+The [clip()](https://xn--4db.cc/Jco0gZKc/bash) function was written by Jason A. Donenfeld of zx2c4.com and is licensed under [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
 
 Use of passtyper is at your own risk, and the author will not accept liability for it dumping your password into IRC channels, shady websites, command line history, process listings, or other screw-ups. Read the code, it's just string juggling.
-
-## MIT LICENSE TEXT APPLICABLE TO CLIP()
-Copyright (c) 2018 Jason A. Donenfeld
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
