@@ -154,10 +154,11 @@ fi
 
 typestring=""
 clipstring=""
-passdata="$(pass show "${password_file}" 2> /dev/null)"
-password="${passdata%%$'\n'*}"
-passdata="${passdata#${password}}"
-passdata="${passdata#$'\n'}"
+shopt -s lastpipe
+pass show "${password_file}" 2> /dev/null | readarray -t passdata
+shopt -u lastpipe
+password="${passdata[0]}"
+passdata=("${passdata[@]:1}")
 
 [[ -n "${password}" ]] || exit
 
@@ -165,13 +166,14 @@ passdata="${passdata#$'\n'}"
 # username-fields are often prefixed with "username:"
 if [[ "${giveusername}" -ne 0 ]]
 then
-	if [[ -n "${passdata}" ]]
+	if [[ -n "${passdata[@]}" ]]
 	then
-		username="$( builtin echo "${passdata}" | sed -ne '/^username: /I s/^username: //I p' )"
+		username="$( printf '%s\n' "${passdata[@]}" | sed -ne '/^username: /I s/^username: //I p' )"
+		# Fallback to line 2 of the file (index 0 in the array now)
+		# if it does not contain spaces and :.
 		if [[ -z "${username}" ]]
 		then
-			# Fallback to line 2 of the file. if it does not contain spaces and :.
-			username="${passdata#*$'\n'}"
+			username="${passdata[0]}"
 			if [[ "${username}" == *":"* ]] || [[ "${username}" == *" "* ]]
 			then
 				username=""
